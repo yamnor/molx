@@ -1,0 +1,29 @@
+[project]
+name = "molx"
+version = "0.1.0"
+description = "View and share molecular structures from public structure file URLs."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "fastapi==0.136.1",
+  "pillow==12.0.0",
+  "uvicorn[standard]==0.47.0",
+]
+
+[project.scripts]
+molx = "molx.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+molx = [
+  "static/*",
+  "static/favicon/*",
+  "static/js/*",
+]

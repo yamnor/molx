@@ -1,0 +1,55 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      MOLX_DB_PATH: /data/main.db
+      MAX_STRUCTURE_BYTES: ${MAX_STRUCTURE_BYTES:-2097152}
+      MAX_FETCH_REDIRECTS: ${MAX_FETCH_REDIRECTS:-3}
+      FETCH_TIMEOUT_SECONDS: ${FETCH_TIMEOUT_SECONDS:-10}
+      MAX_SOURCE_URL_LENGTH: ${MAX_SOURCE_URL_LENGTH:-2048}
+      MAX_TITLE_LENGTH: ${MAX_TITLE_LENGTH:-160}
+      MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-8192}
+      MAX_STRUCTURE_LINES: ${MAX_STRUCTURE_LINES:-200000}
+      MAX_ATOMS: ${MAX_ATOMS:-50000}
+      MAX_MODELS: ${MAX_MODELS:-200}
+      MAX_CUBE_GRID_POINTS: ${MAX_CUBE_GRID_POINTS:-2000000}
+      REGISTER_RATE_LIMIT_PER_HOUR: ${REGISTER_RATE_LIMIT_PER_HOUR:-60}
+      FETCH_RATE_LIMIT_PER_MINUTE: ${FETCH_RATE_LIMIT_PER_MINUTE:-120}
+      OG_RATE_LIMIT_PER_MINUTE: ${OG_RATE_LIMIT_PER_MINUTE:-120}
+      MAX_RATE_LIMIT_IDENTITIES: ${MAX_RATE_LIMIT_IDENTITIES:-10000}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
+      MOLX_ALLOWED_ORIGINS: ${MOLX_ALLOWED_ORIGINS:-}
+    volumes:
+      - molx-data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      MOLX_DOMAIN: ${MOLX_DOMAIN:-localhost}
+      MOLX_DOCS_DOMAIN: ${MOLX_DOCS_DOMAIN:-docs.localhost}
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docs:/srv/docs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  molx-data:
+  caddy-data:
+  caddy-config:
