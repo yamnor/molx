@@ -99,6 +99,16 @@
 <div id="shareModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
   <div class="modal-content">
     <h2 id="shareTitle">Link</h2>
+    <section id="shareSection" class="modal-section" hidden>
+      <h3>Share</h3>
+      <div class="inputContainer">
+        <p id="sourceInfo">Source URL is hidden from viewers.</p>
+        <label for="shareLink">Public URL:</label>
+        <input type="url" id="shareLink" value="" readonly aria-label="molx public share URL">
+        <button type="button" id="copyLinkButton">Copy</button>
+        <p id="shareMessage" aria-live="polite"></p>
+      </div>
+    </section>
     <section id="registerSection" class="modal-section">
       <h3>Register URL</h3>
       <div class="inputContainer">
@@ -111,16 +121,6 @@
         </label>
         <button type="button" id="registerButton">Register</button>
         <p id="linkMessage" aria-live="polite"></p>
-      </div>
-    </section>
-    <section id="shareSection" class="modal-section" hidden>
-      <h3>Share</h3>
-      <div class="inputContainer">
-        <p id="sourceInfo">Source URL is hidden from viewers.</p>
-        <label for="shareLink">Public URL:</label>
-        <input type="url" id="shareLink" value="" readonly aria-label="molx public share URL">
-        <button type="button" id="copyLinkButton">Copy</button>
-        <p id="shareMessage" aria-live="polite"></p>
       </div>
     </section>
     <section id="editSection" class="modal-section" hidden>
