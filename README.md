@@ -30,15 +30,11 @@ http://127.0.0.1:8000/?url=https%3A%2F%2Fgithub.com%2Fuser%2Frepo%2Fblob%2Fmain%
 
 ```bash
 cp .env.example .env
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 ```
 
-Set deployment domains in `.env`:
-
-```env
-MOLX_DOMAIN=molx.example.com
-MOLX_DOCS_DOMAIN=docs.molx.example.com
-```
+By default the container is published only on `127.0.0.1:8001`. Put molx behind
+your existing reverse proxy for public HTTPS.
 
 ## CLI
 
@@ -53,6 +49,8 @@ molx links list
 ## Documentation
 
 The docsify documentation lives in `docs/`.
+
+For production, serve `docs/` as static files from your existing reverse proxy.
 
 Preview locally:
 

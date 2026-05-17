@@ -1,13 +1,13 @@
 # Self hosting
 
-molx can be self-hosted with Docker Compose. The stack is intentionally small:
+molx is designed to run behind an existing server-wide reverse proxy.
+
+The Docker Compose stack contains only the application container:
 
 - `app`: FastAPI/Uvicorn application
-- `caddy`: public HTTP/HTTPS reverse proxy
-- `docs/`: docsify documentation served statically by Caddy
 - `molx-data`: persistent SQLite volume mounted at `/data`
 
-The examples below use placeholder domains. Replace them with domains you own.
+Your existing reverse proxy handles public hostnames, HTTPS certificates, and routing to molx.
 
 ## Requirements
 
@@ -16,10 +16,10 @@ Prepare a server with:
 - Docker
 - Docker Compose
 - Git
-- public DNS records for the app and docs domains
-- inbound HTTP/HTTPS access to the selected ports
+- an existing reverse proxy such as Caddy, nginx, Traefik, or Apache
+- public DNS records pointing to the server
 
-For the standard setup, ports `80` and `443` should be reachable from the internet so Caddy can issue and renew TLS certificates.
+The examples below use placeholder domains. Replace them with domains you own.
 
 ## Clone the repository
 
@@ -32,7 +32,7 @@ cd molx
 
 If you use a fork, clone your fork instead. The remaining commands are the same.
 
-## Configure the environment
+## Configure the app
 
 Create `.env` from the template:
 
@@ -40,45 +40,21 @@ Create `.env` from the template:
 cp .env.example .env
 ```
 
-Edit the public domains:
+By default, molx binds to localhost on port `8001`:
 
 ```env
-MOLX_DOMAIN=molx.example.com
-MOLX_DOCS_DOMAIN=docs.molx.example.com
-HTTP_PORT=80
-HTTPS_PORT=443
+APP_BIND=127.0.0.1
+APP_PORT=8001
 ```
 
-`MOLX_DOMAIN` serves the app. `MOLX_DOCS_DOMAIN` serves this documentation from the local `docs/` directory.
+Keep `APP_BIND=127.0.0.1` unless you intentionally want the app to be reachable directly from outside the server.
 
-## DNS
+## Start molx
 
-Point both hostnames to the server:
-
-```text
-molx.example.com       A/AAAA  your-server
-docs.molx.example.com  A/AAAA  your-server
-```
-
-The two domains can point to the same machine. Caddy routes them by hostname.
-
-### Cloudflare DNS
-
-If you use Cloudflare, the simplest first setup is:
-
-1. Create `A` or `AAAA` records for both hostnames.
-2. Set both records to **DNS only** while Caddy obtains certificates.
-3. Confirm that `https://molx.example.com` and `https://docs.molx.example.com` work directly.
-4. Then switch the records to **Proxied** if you want Cloudflare in front.
-
-When Cloudflare is proxied, use **Full (strict)** SSL/TLS mode after Caddy has a valid certificate. Avoid **Flexible** mode for this app.
-
-## Start the stack
-
-Build and start the containers:
+Build and start the app container:
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 ```
 
 Check status:
@@ -93,41 +69,88 @@ Follow logs:
 docker compose logs -f
 ```
 
-Once DNS points to the server, open:
+Confirm the app responds locally:
+
+```bash
+curl -I http://127.0.0.1:8001/api/health
+```
+
+## Reverse proxy
+
+Configure your existing reverse proxy to forward the public app hostname to:
 
 ```text
-https://molx.example.com
-https://docs.molx.example.com
+http://127.0.0.1:8001
 ```
 
-## Custom ports
+### Caddy example
 
-If another reverse proxy is already using ports `80` and `443`, map Caddy to different host ports:
-
-```env
-MOLX_DOMAIN=molx.example.com
-MOLX_DOCS_DOMAIN=docs.molx.example.com
-HTTP_PORT=8080
-HTTPS_PORT=8443
+```caddyfile
+molx.example.com {
+  reverse_proxy 127.0.0.1:8001
+}
 ```
 
-Then point the outer proxy to:
+### nginx example
 
-```text
-http://127.0.0.1:8080
-https://127.0.0.1:8443
+```nginx
+server {
+    listen 80;
+    server_name molx.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-In that setup, the outer proxy is responsible for public routing. Keep `TRUSTED_PROXY_CIDRS` aligned with the proxy network if rate limiting should use the original client IP.
+If your reverse proxy forwards client IP headers, keep `TRUSTED_PROXY_CIDRS` aligned with the proxy address that reaches the container. The default is suitable for Docker bridge networks in many deployments.
+
+## Documentation site
+
+The documentation is a static docsify site in `docs/`. Serve this directory with your existing reverse proxy.
+
+### Caddy example
+
+```caddyfile
+docs.molx.example.com {
+  root * /path/to/molx/docs
+  try_files {path} /index.html
+  file_server
+}
+```
+
+### nginx example
+
+```nginx
+server {
+    listen 80;
+    server_name docs.molx.example.com;
+    root /path/to/molx/docs;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+To preview docs locally on the server:
+
+```bash
+python3 -m http.server 8010 --directory docs
+```
 
 ## Environment reference
 
 | Variable | Purpose |
 | --- | --- |
-| `MOLX_DOMAIN` | App domain served by Caddy |
-| `MOLX_DOCS_DOMAIN` | Documentation domain served by Caddy |
-| `HTTP_PORT` | Host HTTP port mapped to Caddy |
-| `HTTPS_PORT` | Host HTTPS port mapped to Caddy |
+| `APP_BIND` | Host address used for the local app port |
+| `APP_PORT` | Host port mapped to the app container |
 | `MAX_STRUCTURE_BYTES` | Maximum fetched structure file size |
 | `MAX_FETCH_REDIRECTS` | Maximum HTTPS redirects to follow |
 | `FETCH_TIMEOUT_SECONDS` | Fetch timeout for source URLs |
@@ -174,14 +197,9 @@ For production, add automated backups for `/data/main.db`. A scheduled SQLite co
 
 ## Update molx
 
-From the cloned repository on the server:
+When the source code changes upstream, update the server from the cloned repository.
 
-```bash
-git pull
-docker compose up -d --build
-```
-
-For a cautious update:
+First, create a database backup:
 
 ```bash
 docker compose exec app python - <<'PY'
@@ -194,34 +212,51 @@ target = Path("/data") / f"main-{datetime.utcnow():%Y%m%d%H%M%S}.db"
 shutil.copy2(source, target)
 print(target)
 PY
-
-git pull
-docker compose up -d --build
-docker compose ps
-docker compose logs -f
 ```
 
-If you changed `.env.example` in your deployment, compare it with your local `.env` after pulling changes and add any new variables you need.
+Then pull the latest source and rebuild:
+
+```bash
+git pull
+docker compose up -d --build --remove-orphans
+```
+
+`--remove-orphans` is useful when the Compose file changes and removes an old service. For example, older molx deployments included a Caddy service; the current standard deployment does not.
+
+Check the result:
+
+```bash
+docker compose ps
+docker compose logs app
+curl -I http://127.0.0.1:8001/api/health
+```
+
+If `.env.example` changed, compare it with your local `.env` and add any new variables you need:
+
+```bash
+git diff HEAD@{1} -- .env.example
+```
+
+If the update fails, inspect logs and either fix the configuration or roll back to the previous Git revision:
+
+```bash
+git log --oneline -5
+git checkout <previous-commit>
+docker compose up -d --build --remove-orphans
+```
 
 ## Restart and logs
 
-Restart only the app:
+Restart the app:
 
 ```bash
 docker compose restart app
-```
-
-Restart the full stack:
-
-```bash
-docker compose restart
 ```
 
 Inspect logs:
 
 ```bash
 docker compose logs app
-docker compose logs caddy
 docker compose logs -f
 ```
 
@@ -231,42 +266,9 @@ If the app does not open:
 
 1. Check `docker compose ps`.
 2. Check `docker compose logs app`.
-3. Check `docker compose logs caddy`.
-4. Confirm DNS points to the server.
-5. Confirm ports `80` and `443` are reachable, or that your custom port mapping is correct.
-
-If HTTPS certificates are not issued, the most common causes are incorrect DNS, blocked ports, or using placeholder domains.
-
-If Cloudflare shows `525 SSL handshake failed`, Cloudflare can reach the origin but cannot complete TLS with it. Check:
-
-1. Cloudflare SSL/TLS mode is `Full` or `Full (strict)`.
-2. Port `443` on the server is open to the internet.
-3. Caddy has obtained a certificate for `MOLX_DOMAIN`.
-4. The Cloudflare DNS record points to the correct server IP.
-5. The Caddy logs do not show ACME or TLS errors.
-
-Useful checks on the server:
-
-```bash
-docker compose ps
-docker compose logs caddy
-curl -I http://127.0.0.1
-curl -kI https://127.0.0.1
-```
-
-Useful checks from your local machine:
-
-```bash
-curl -I http://molx.example.com
-curl -I https://molx.example.com
-```
-
-If certificate issuance is failing behind Cloudflare, temporarily set the DNS records to **DNS only**, wait for DNS to update, restart Caddy, and try again:
-
-```bash
-docker compose restart caddy
-docker compose logs -f caddy
-```
+3. Confirm the local app responds with `curl -I http://127.0.0.1:8001/api/health`.
+4. Confirm your reverse proxy points to `127.0.0.1:8001`.
+5. Confirm DNS points to the server.
 
 If source URL fetching fails, confirm that the source URL is public HTTPS on port `443` and points to a supported text-based structure file.
 
@@ -279,6 +281,6 @@ molx fetches user-provided public URLs. The app includes several guardrails:
 - file size, line count, atom count, model count, and CUBE grid limits
 - registration, fetch, and OGP rate limits
 - edit tokens stored as hashes
-- security headers from FastAPI and Caddy
+- security headers from FastAPI
 
 For stronger SSRF protection in production, also block private-network egress from the app container or host firewall. Application-level checks are useful, but network-level egress rules are the most reliable defense against DNS rebinding and infrastructure-specific edge cases.

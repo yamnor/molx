@@ -22,8 +22,8 @@ services:
       MOLX_ALLOWED_ORIGINS: ${MOLX_ALLOWED_ORIGINS:-}
     volumes:
       - molx-data:/data
-    expose:
-      - "8000"
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8001}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"]
       interval: 30s
@@ -31,25 +31,5 @@ services:
       retries: 3
       start_period: 10s
 
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    environment:
-      MOLX_DOMAIN: ${MOLX_DOMAIN:-localhost}
-      MOLX_DOCS_DOMAIN: ${MOLX_DOCS_DOMAIN:-docs.localhost}
-    depends_on:
-      app:
-        condition: service_healthy
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./docs:/srv/docs:ro
-      - caddy-data:/data
-      - caddy-config:/config
-
 volumes:
   molx-data:
-  caddy-data:
-  caddy-config:
