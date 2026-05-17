@@ -62,6 +62,17 @@ docs.molx.example.com  A/AAAA  your-server
 
 The two domains can point to the same machine. Caddy routes them by hostname.
 
+### Cloudflare DNS
+
+If you use Cloudflare, the simplest first setup is:
+
+1. Create `A` or `AAAA` records for both hostnames.
+2. Set both records to **DNS only** while Caddy obtains certificates.
+3. Confirm that `https://molx.example.com` and `https://docs.molx.example.com` work directly.
+4. Then switch the records to **Proxied** if you want Cloudflare in front.
+
+When Cloudflare is proxied, use **Full (strict)** SSL/TLS mode after Caddy has a valid certificate. Avoid **Flexible** mode for this app.
+
 ## Start the stack
 
 Build and start the containers:
@@ -225,6 +236,37 @@ If the app does not open:
 5. Confirm ports `80` and `443` are reachable, or that your custom port mapping is correct.
 
 If HTTPS certificates are not issued, the most common causes are incorrect DNS, blocked ports, or using placeholder domains.
+
+If Cloudflare shows `525 SSL handshake failed`, Cloudflare can reach the origin but cannot complete TLS with it. Check:
+
+1. Cloudflare SSL/TLS mode is `Full` or `Full (strict)`.
+2. Port `443` on the server is open to the internet.
+3. Caddy has obtained a certificate for `MOLX_DOMAIN`.
+4. The Cloudflare DNS record points to the correct server IP.
+5. The Caddy logs do not show ACME or TLS errors.
+
+Useful checks on the server:
+
+```bash
+docker compose ps
+docker compose logs caddy
+curl -I http://127.0.0.1
+curl -kI https://127.0.0.1
+```
+
+Useful checks from your local machine:
+
+```bash
+curl -I http://molx.example.com
+curl -I https://molx.example.com
+```
+
+If certificate issuance is failing behind Cloudflare, temporarily set the DNS records to **DNS only**, wait for DNS to update, restart Caddy, and try again:
+
+```bash
+docker compose restart caddy
+docker compose logs -f caddy
+```
 
 If source URL fetching fails, confirm that the source URL is public HTTPS on port `443` and points to a supported text-based structure file.
 
