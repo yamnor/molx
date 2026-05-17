@@ -19,6 +19,8 @@ const registerButton = document.getElementById("registerButton");
 const copyLinkButton = document.getElementById("copyLinkButton");
 const editInfo = document.getElementById("editInfo");
 const editFields = document.getElementById("editFields");
+const editLink = document.getElementById("editLink");
+const copyEditLinkButton = document.getElementById("copyEditLinkButton");
 const editTitle = document.getElementById("editTitle");
 const editSourceUrl = document.getElementById("editSourceUrl");
 const editSourceVisibility = document.getElementById("editSourceVisibility");
@@ -986,6 +988,11 @@ function scheduleViewerResize() {
   resizeTimerId = window.setTimeout(() => resizeViewer(), 120);
 }
 
+function getEditUrl() {
+  if (!currentKey || !currentEditToken) return "";
+  return `${window.location.origin}/${currentKey}?edit=${encodeURIComponent(currentEditToken)}`;
+}
+
 function openModal(name) {
   const modal = document.getElementById(name);
   modal.style.display = "flex";
@@ -1043,6 +1050,7 @@ function syncShareLink() {
   } else {
     shareLink.value = "";
   }
+  if (editLink) editLink.value = getEditUrl();
 }
 
 function setDisplaySetting(name, value) {
@@ -1304,12 +1312,13 @@ function updateLinkPanels() {
   }
 
   if (editTitle) editTitle.value = currentTitle;
+  if (editLink) editLink.value = getEditUrl();
   if (editSourceUrl) editSourceUrl.value = currentSourceUrl;
   if (editSourceVisibility) editSourceVisibility.checked = currentSourceVisibility === "public";
   if (editFields) editFields.hidden = !canEditCurrentLink;
   if (editInfo) {
     editInfo.textContent = canEditCurrentLink
-      ? "Edit URL active. Keep this private URL to update this link."
+      ? "Keep this private edit URL. It is required to change the title, source visibility, or saved display settings later."
       : "View-only. Open the private edit URL to update this link.";
   }
   if (editMessage) editMessage.textContent = "";
@@ -1444,7 +1453,7 @@ async function registerUrl() {
     window.history.pushState({}, "", `/${data.key}${editSearch}`);
     await loadKey(data.key);
     linkMessage.textContent = "";
-    if (editMessage) editMessage.textContent = "Registered. Keep this edit URL private. Share the public URL above.";
+    if (editMessage) editMessage.textContent = "Registered. Keep the edit URL private. You need it to change the title or saved display settings later.";
     shareLink.select();
     const copied = await copyTextToClipboard(shareLink.value);
     if (!copied) {
@@ -1515,6 +1524,24 @@ async function copyLink() {
   }, 1000);
 }
 
+async function copyEditLink() {
+  if (!editLink?.value) {
+    if (editMessage) editMessage.textContent = "No edit URL is available.";
+    return;
+  }
+  editLink.select();
+  const copied = await copyTextToClipboard(editLink.value);
+  copyEditLinkButton.textContent = copied ? "Copied!" : "Selected";
+  if (editMessage) {
+    editMessage.textContent = copied
+      ? "Copied. Keep it private."
+      : "Clipboard access is blocked. The edit URL is selected for manual copy.";
+  }
+  setTimeout(() => {
+    copyEditLinkButton.textContent = "Copy";
+  }, 1000);
+}
+
 window.onload = async () => {
   const key = window.location.pathname.split("/").filter(Boolean)[0];
   const params = new URLSearchParams(window.location.search);
@@ -1561,6 +1588,7 @@ infoButton?.addEventListener("click", () => openModal("infoModal"));
 registerButton?.addEventListener("click", registerUrl);
 updateButton?.addEventListener("click", saveLinkMetadata);
 copyLinkButton?.addEventListener("click", copyLink);
+copyEditLinkButton?.addEventListener("click", copyEditLink);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", () => closeModal(button.dataset.closeModal));
 });

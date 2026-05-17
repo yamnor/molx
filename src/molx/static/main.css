@@ -13,7 +13,7 @@
   --color-measure: #f4c542;
   --color-focus: var(--color-accent);
   --color-icon-muted: rgba(128, 128, 128, 0.75);
-  --color-placeholder: rgba(128, 128, 128, 0.76);
+  --color-placeholder: rgba(128, 128, 128, 0.42);
   --color-transparent: rgba(255, 255, 255, 0);
   --color-overlay-light: rgba(255, 255, 255, 0.04);
   --color-overlay-dark: rgba(0, 0, 0, 0.04);
@@ -35,6 +35,10 @@
 *, *:before, *:after {
   box-sizing: border-box;
   padding: 0;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 *:focus {
@@ -85,6 +89,11 @@ main {
   white-space: nowrap;
   overflow-x: auto;
   display: none;
+}
+
+#dataArea::placeholder,
+.inputContainer input::placeholder {
+  color: var(--color-placeholder);
 }
 
 #viewArea {
@@ -501,7 +510,8 @@ body.palette-open .measurement-panel {
   color: var(--color-muted);
 }
 
-#sourceInfo {
+#sourceInfo,
+#editInfo {
   overflow-wrap: anywhere;
 }
 

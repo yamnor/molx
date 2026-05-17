@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
   <script src="/static/js/3Dmol-min.js"></script>
-  <link rel="stylesheet" href="/static/main.css?v=38"/>
+  <link rel="stylesheet" href="/static/main.css?v=42"/>
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
   <link rel="manifest" href="/static/favicon/site.webmanifest">
   <meta name="msapplication-TileColor" content="#ffffff">
@@ -103,10 +103,10 @@
       <h3>Register URL</h3>
       <div class="inputContainer">
         <p>The structure data itself is not uploaded to molx. molx stores only the public source URL.</p>
-        <label for="sourceTitle">Title:</label>
-        <input type="text" id="sourceTitle" placeholder="Optional title for previews and sharing" autocomplete="off" spellcheck="false" maxlength="160">
         <label for="sourceUrl">Source URL:</label>
         <input type="url" id="sourceUrl" placeholder="https://github.com/user/repo/blob/main/example.pdb" autocomplete="off" spellcheck="false">
+        <label for="sourceTitle">Title:</label>
+        <input type="text" id="sourceTitle" placeholder="Optional title for previews and sharing" autocomplete="off" spellcheck="false" maxlength="160">
         <label class="checkbox-label" for="sourceVisibility">
           <input type="checkbox" id="sourceVisibility">
           Show source URL to viewers
@@ -130,10 +130,13 @@
       <div class="inputContainer">
         <p id="editInfo">View-only. Open the private edit URL to update this link.</p>
         <div id="editFields" class="inputContainer nested-inputs" hidden>
-          <label for="editTitle">Title:</label>
-          <input type="text" id="editTitle" autocomplete="off" spellcheck="false" maxlength="160">
+          <label for="editLink">Edit URL:</label>
+          <input type="url" id="editLink" readonly aria-label="Private molx edit URL">
+          <button type="button" id="copyEditLinkButton">Copy</button>
           <label for="editSourceUrl">Source URL:</label>
           <input type="url" id="editSourceUrl" readonly>
+          <label for="editTitle">Title:</label>
+          <input type="text" id="editTitle" autocomplete="off" spellcheck="false" maxlength="160">
           <label class="checkbox-label" for="editSourceVisibility">
             <input type="checkbox" id="editSourceVisibility">
             Show source URL to viewers
@@ -149,7 +152,7 @@
   </div>
 </div>
 
-<script type="text/javascript" src="/static/main.js?v=37"></script>
+<script type="text/javascript" src="/static/main.js?v=38"></script>
 
 </body>
 </html>
