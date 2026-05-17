@@ -9,7 +9,6 @@ const shareLink = document.getElementById("shareLink");
 const registerSection = document.getElementById("registerSection");
 const shareSection = document.getElementById("shareSection");
 const editSection = document.getElementById("editSection");
-const sourceTitle = document.getElementById("sourceTitle");
 const sourceUrl = document.getElementById("sourceUrl");
 const sourceVisibility = document.getElementById("sourceVisibility");
 const sourceInfo = document.getElementById("sourceInfo");
@@ -583,7 +582,7 @@ function hideMeasurementUi() {
   measurementPanel.style.display = "none";
 }
 
-function enableViewMode() {
+function enableViewMode(title = "") {
   const data = dataArea.value;
   const detectedFormat = detectStructureFormat(data, currentFormat);
   if (!detectedFormat) {
@@ -602,7 +601,7 @@ function enableViewMode() {
   dataArea.style.display = "none";
   hideMeasurementUi();
   isViewMode = true;
-  openViewer(data, detectedFormat);
+  openViewer(data, detectedFormat, title);
   toggleModeButton.innerHTML = icon("grip");
 }
 
@@ -627,9 +626,9 @@ function toggleMode() {
   }
 }
 
-function openViewer(structureData, format = currentFormat) {
+function openViewer(structureData, format = currentFormat, title = "") {
   currentFormat = format;
-  document.getElementById("commentArea").textContent = getStructureComment(structureData, format);
+  document.getElementById("commentArea").textContent = title || getStructureComment(structureData, format);
   viewer.clear();
   resetMeasurementState();
   moleculeCenter = null;
@@ -1330,8 +1329,6 @@ function updateSourceControls() {
     sourceUrl.readOnly = false;
     sourceUrl.value = currentSourceUrl;
   }
-  if (sourceTitle) sourceTitle.value = currentTitle;
-  if (sourceTitle) sourceTitle.readOnly = false;
   if (sourceVisibility) sourceVisibility.disabled = false;
   if (registerButton) {
     registerButton.textContent = "Register";
@@ -1402,7 +1399,7 @@ async function loadKey(key) {
   readDisplaySettingsFromUrl(detectedFormat);
   dataArea.value = structureData;
   updateShareState({ ...data, data: structureData, format: detectedFormat });
-  enableViewMode();
+  enableViewMode(currentTitle);
 }
 
 async function loadSourceUrl(url) {
@@ -1420,12 +1417,40 @@ async function loadSourceUrl(url) {
   dataArea.value = structureData;
   updateShareState({ ...data, key: "", data: structureData, format: detectedFormat, source_visibility: "hidden" });
   if (data.title) document.title = `molx | ${data.title}`;
-  enableViewMode();
+  enableViewMode(currentTitle);
+}
+
+async function loadDefaultStructure() {
+  isDirectUrlMode = false;
+  currentEditToken = "";
+  const response = await fetch("/static/caffeine.xyz");
+  if (!response.ok) {
+    throw new Error(`Failed to load default structure: ${response.status}`);
+  }
+  const structureData = await response.text();
+  const detectedFormat = detectStructureFormat(structureData, "xyz");
+  if (!detectedFormat) {
+    throw new Error("Invalid or unsupported default structure data.");
+  }
+  currentFormat = detectedFormat;
+  savedDisplaySettings = null;
+  readDisplaySettingsFromUrl(detectedFormat);
+  dataArea.value = structureData;
+  updateShareState({
+    key: "",
+    url: "",
+    format: detectedFormat,
+    title: "Caffeine",
+    source_visibility: "hidden",
+    can_edit: false,
+    created_at: null,
+  });
+  document.title = "molx | Caffeine";
+  enableViewMode(currentTitle);
 }
 
 async function registerUrl() {
   const url = sourceUrl.value.trim();
-  const title = sourceTitle.value.trim();
   const showSource = Boolean(sourceVisibility?.checked);
   if (!url) {
     linkMessage.textContent = "Please enter a public structure file URL.";
@@ -1441,7 +1466,7 @@ async function registerUrl() {
         "accept": "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ url, title: title || null, show_source: showSource }),
+      body: JSON.stringify({ url, title: null, show_source: showSource }),
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1552,11 +1577,7 @@ window.onload = async () => {
     } else if (directUrl) {
       await loadSourceUrl(directUrl);
     } else {
-      dataArea.value = "";
-      savedDisplaySettings = null;
-      isDirectUrlMode = false;
-      updateShareState({});
-      enableEditMode();
+      await loadDefaultStructure();
     }
   } catch (error) {
     console.error("Error loading molecular structure:", error);
